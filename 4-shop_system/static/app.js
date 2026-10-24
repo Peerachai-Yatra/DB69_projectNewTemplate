@@ -1,183 +1,279 @@
-# ============================================================
-#  app.py — เว็บแอป Flask (ทำให้เสร็จแล้ว ★ ปกติไม่ต้องแก้)
-#  รัน:  python app.py  แล้วเปิด http://127.0.0.1:5000
-#  ★ เพิ่มรายงานใหม่ไม่ต้องแก้ไฟล์นี้ — ไปเพิ่มที่ REPORTS ท้าย db.py
-# ============================================================
-from datetime import date, datetime
-from flask import Flask, request, jsonify, render_template
-from flask.json.provider import DefaultJSONProvider
-import db
+// ============================================================
+//  app.js  —  ตรรกะหน้าเว็บ (ทำให้เสร็จแล้ว ★ นิสิตไม่ต้องแก้)
+//  ปรับช่องค้นหา/ฟอร์มได้ที่ตัวแปร ENTITIES ด้านล่าง
+// ============================================================
+// ★ ตัวอย่าง dropdown ที่อ่านข้อมูลจากฐานข้อมูล: ฟอร์ม "ออเดอร์" ช่อง cust_id
+//   แสดง name แต่ส่งค่าเป็น cust_id (อ่านรายการจาก /api/customers)
+//   ช่อง FK อื่น ๆ ทำแบบเดียวกันได้ — เปลี่ยน "type": "number" เป็น select + optionsFrom
+const ENTITIES = {
+  "customers": {
+    "label": "ลูกค้า",
+    "api": "/api/customers",
+    "idKey": "cust_id",
+    "search": [
+      {
+        "key": "name",
+        "label": "ชื่อ",
+        "type": "text"
+      },
+      {
+        "key": "email",
+        "label": "อีเมล",
+        "type": "text"
+      },
+      {
+        "key": "tier",
+        "label": "ระดับ",
+        "type": "select",
+        "options": [
+          "",
+          "normal",
+          "silver",
+          "gold",
+          "vip"
+        ]
+      }
+    ],
+    "form": [
+      {
+        "key": "name",
+        "label": "ชื่อ",
+        "type": "text"
+      },
+      {
+        "key": "email",
+        "label": "อีเมล",
+        "type": "text"
+      },
+      {
+        "key": "address",
+        "label": "ที่อยู่",
+        "type": "text"
+      },
+      {
+        "key": "tier",
+        "label": "ระดับ",
+        "type": "select",
+        "options": [
+          "normal",
+          "silver",
+          "gold",
+          "vip"
+        ]
+      }
+    ]
+  },
+  "products": {
+    "label": "สินค้า",
+    "api": "/api/products",
+    "idKey": "product_id",
+    "search": [
+      {
+        "key": "name",
+        "label": "ชื่อสินค้า",
+        "type": "text"
+      },
+      {
+        "key": "category",
+        "label": "หมวดหมู่",
+        "type": "select",
+        "options": [
+          "",
+          "unassigned",
+          "electronics",
+          "fashion",
+          "home", 
+          "stationery",
+          "sports",
+          "necessities"
+        ]
+      }
+    ],
+    "form": [
+      {
+        "key": "name",
+        "label": "ชื่อสินค้า",
+        "type": "text"
+      },
+      {
+        "key": "category",
+        "label": "หมวดหมู่",
+        "type": "select",
+        "options": [
+          "electronics",
+          "fashion",
+          "home",
+          "stationery",
+          "sports",
+          "necessities"
+        ]
+      },
+      {
+        "key": "price",
+        "label": "ราคา",
+        "type": "number"
+      },
+      {
+        "key": "stock",
+        "label": "สต็อก",
+        "type": "number"
+      }
+    ]
+  },
+  "orders": {
+    "label": "ออเดอร์",
+    "api": "/api/orders",
+    "idKey": "order_id",
+    "search": [
+      { "key": "cust_id", "label": "รหัสลูกค้า", "type": "number" },
+      { "key": "status", "label": "สถานะ", "type": "select",
+        "options": ["", "pending", "shipped", "cancelled"] }
+    ],
+    "form": [
+      { "key": "cust_id", "label": "ลูกค้า", "type": "select",
+        "optionsFrom": { "api": "/api/customers", "value": "cust_id", "label": "name" } },
+      { "key": "order_date", "label": "วันที่สั่ง", "type": "date" },
+      { "key": "status", "label": "สถานะ", "type": "select",
+        "options": ["pending", "shipped", "cancelled"] },
+      { "key": "product_id", "label": "สินค้า", "type": "select",
+        "optionsFrom": { "api": "/api/products", "value": "product_id", "label": "name" } },
+      { "key": "qty", "label": "จำนวน", "type": "number" }
+    ]
+  },
+  "reviews": {
+    "label": "รีวิวสินค้า",
+    "api": "/api/reviews",
+    "idKey": "review_id",
+    "search": [
+      { "key": "product_id", "label": "รหัสสินค้า", "type": "number" },
+      { "key": "rating", "label": "คะแนน", "type": "select",
+        "options": ["", 1, 2, 3, 4, 5] }
+    ],
+    "form": [
+      { "key": "product_id", "label": "สินค้า", "type": "select",
+        "optionsFrom": { "api": "/api/products", "value": "product_id", "label": "name" } },
+      { "key": "cust_id", "label": "ลูกค้า", "type": "select",
+        "optionsFrom": { "api": "/api/customers", "value": "cust_id", "label": "name" } },
+      { "key": "rating", "label": "คะแนน", "type": "select",
+        "options": [1, 2, 3, 4, 5] },
+      { "key": "comment", "label": "ความคิดเห็น", "type": "text" }
+    ]
+  },
+  "payments": {
+    "label": "ชำระเงิน",
+    "api": "/api/payments",
+    "idKey": "payment_id",
+    "search": [
+      { "key": "order_id", "label": "รหัสออเดอร์", "type": "number" },
+    ],
+    "form": [
+      { "key": "order_id", "label": "ออเดอร์", "type": "select",
+        "optionsFrom": { "api": "/api/orders", "value": "order_id", "label": "order_date" } },
+      { "key": "payment_date", "label": "วันที่ชำระ", "type": "date" },
+      { "key": "amount", "label": "จำนวนเงิน", "type": "number" },
+      { "key": "method", "label": "วิธีชำระ", "type": "select",
+        "options": ["Somehow", "Cash", "Credit Card", "Bank Transfer"] },
+    ]
+  }
+};
 
+let current = Object.keys(ENTITIES)[0];
+let editingId = null;
+const $ = (s) => document.querySelector(s);
+function setStatus(el, msg, cls = "") { el.className = "status " + cls; el.textContent = msg; }
+async function api(url, opts) { const res = await fetch(url, opts); return res.json(); }
 
-class JSONProvider(DefaultJSONProvider):
-    """- ส่งวันที่เป็นรูปแบบ YYYY-MM-DD ให้ช่อง <input type="date"> ในฟอร์มอ่านได้
-       - ไม่เรียงชื่อคอลัมน์ใหม่ → หัวตารางเรียงตามลำดับใน SELECT"""
-    sort_keys = False
-
-    @staticmethod
-    def default(o):
-        if isinstance(o, (date, datetime)):
-            return o.isoformat()
-        return DefaultJSONProvider.default(o)
-
-
-app = Flask(__name__)
-app.json = JSONProvider(app)
-
-
-def safe(fn, *args, **kwargs):
-    try:
-        return jsonify({"ok": True, "data": fn(*args, **kwargs)})
-    except NotImplementedError as e:
-        return jsonify({"ok": False, "todo": True, "error": str(e)}), 501
-    except ValueError as e:
-        # ข้อผิดพลาดที่ db.py ตั้งใจแจ้งผู้ใช้ เช่น raise ValueError("คลาสนี้เต็มแล้ว")
-        return jsonify({"ok": False, "error": str(e)}), 400
-    except Exception as e:
-        return jsonify({"ok": False, "error": f"{type(e).__name__}: {e}"}), 500
-
-
-@app.route("/")
-def page_home():
-    return render_template("index.html")
-
-@app.route("/report")
-def page_report():
-    return render_template("report.html")
-
-
-# ---- ลูกค้า ----
-@app.route("/api/customers", methods=["GET"])
-def customers_list():
-    filters = {k: v for k, v in request.args.items() if v}
-    return safe(db.search_customers, filters)
-
-@app.route("/api/customers/<int:_id>", methods=["GET"])
-def customer_get(_id):
-    return safe(db.get_customer, _id)
-
-@app.route("/api/customers", methods=["POST"])
-def customer_create():
-    return safe(db.create_customer, request.json)
-
-@app.route("/api/customers/<int:_id>", methods=["PUT"])
-def customer_update(_id):
-    return safe(db.update_customer, _id, request.json)
-
-@app.route("/api/customers/<int:_id>", methods=["DELETE"])
-def customer_delete(_id):
-    return safe(db.delete_customer, _id)
-
-# ---- สินค้า ----
-@app.route("/api/products", methods=["GET"])
-def products_list():
-    filters = {k: v for k, v in request.args.items() if v}
-    return safe(db.search_products, filters)
-
-@app.route("/api/products/<int:_id>", methods=["GET"])
-def product_get(_id):
-    return safe(db.get_product, _id)
-
-@app.route("/api/products", methods=["POST"])
-def product_create():
-    return safe(db.create_product, request.json)
-
-@app.route("/api/products/<int:_id>", methods=["PUT"])
-def product_update(_id):
-    return safe(db.update_product, _id, request.json)
-
-@app.route("/api/products/<int:_id>", methods=["DELETE"])
-def product_delete(_id):
-    return safe(db.delete_product, _id)
-
-# ---- ออเดอร์ ----
-@app.route("/api/orders", methods=["GET"])
-def orders_list():
-    filters = {k: v for k, v in request.args.items() if v}
-    return safe(db.search_orders, filters)
-
-@app.route("/api/orders/<int:_id>", methods=["GET"])
-def order_get(_id):
-    return safe(db.get_order, _id)
-
-@app.route("/api/orders", methods=["POST"])
-def order_create():
-    return safe(db.create_order, request.json)
-
-@app.route("/api/orders/<int:_id>", methods=["PUT"])
-def order_update(_id):
-    return safe(db.update_order, _id, request.json)
-
-@app.route("/api/orders/<int:_id>", methods=["DELETE"])
-def order_delete(_id):
-    return safe(db.delete_order, _id)
-
-# ---- รีวิว ----
-@app.route("/api/reviews", methods=["GET"])
-def reviews_list():
-    filters = {k: v for k, v in request.args.items() if v}
-    return safe(db.search_reviews, filters)
-
-@app.route("/api/reviews/<int:_id>", methods=["GET"])
-def get_review(_id):
-    return safe(db.get_review, _id)
-
-@app.route("/api/reviews", methods=["POST"])
-def create_review():
-    return safe(db.create_review, request.json)
-
-
-@app.route("/api/reviews/<int:_id>", methods=["PUT"])
-def update_review(_id):
-    return safe(db.update_review, _id, request.json)
-
-@app.route("/api/reviews/<int:_id>", methods=["DELETE"])
-def delete_review(_id):
-    return safe(db.delete_review, _id)
-
-@app.route("/api/products/<int:product_id>/reviews", methods=["GET"])
-def get_product_reviews(product_id):
-    return safe(db.get_product_reviews, product_id)
-# ---- ชำระเงิน ----
-@app.route("/api/payments", methods=["GET"])
-def payments_list():
-    filters = {k: v for k, v in request.args.items() if v}
-    return safe(db.search_payments, filters)
-
-@app.route("/api/payments/<int:_id>", methods=["GET"])
-def get_payment(_id):
-    return safe(db.get_payment, _id)
-
-@app.route("/api/payments", methods=["POST"])
-def create_payment():
-    return safe(db.create_payment, request.json)
-
-@app.route("/api/payments/<int:_id>", methods=["PUT"])
-def update_payment(_id):
-    return safe(db.update_payment, _id, request.json)
-
-@app.route("/api/payments/<int:_id>", methods=["DELETE"])
-def delete_payment(_id):
-    return safe(db.delete_payment, _id)
-
-# ---- รายงาน ----
-@app.route("/api/reports/summary")
-def report_summary():
-    return safe(db.report_summary)
-
-@app.route("/api/reports")
-def report_list():
-    """รายชื่อรายงานทั้งหมด (อ่านจาก db.REPORTS) ให้หน้าเว็บสร้างกล่องรายงาน"""
-    return jsonify({"ok": True, "data": [{"key": k, "title": t} for k, t, _ in db.REPORTS]})
-
-@app.route("/api/reports/<key>")
-def report_run(key):
-    """รันรายงานตามชื่อ เช่น /api/reports/overdue"""
-    for k, _, fn in db.REPORTS:
-        if k == key:
-            return safe(fn)
-    return jsonify({"ok": False, "error": f"ไม่พบรายงาน '{key}' ใน db.REPORTS"}), 404
-
-
-if __name__ == "__main__":
-    app.run(debug=True, port=5000)
+function fieldHtml(f, prefix, value = "") {
+  if (f.type === "heading") return '<div class="form-section">' + f.label + '</div>';
+  let input;
+  if (f.type === "select") {
+    // options เป็นข้อความ "a" หรือ {value, label} ก็ได้
+    input = '<select id="' + prefix + f.key + '">' +
+      f.options.map(o => {
+        const v = typeof o === "object" ? o.value : o;
+        const t = typeof o === "object" ? o.label : (o || "ทั้งหมด");
+        return '<option value="' + v + '"' + (String(v) === String(value ?? "") ? " selected" : "") + '>' + t + '</option>';
+      }).join("") + '</select>';
+  } else { input = '<input id="' + prefix + f.key + '" type="' + f.type + '" value="' + (value ?? "") + '">'; }
+  return '<div class="field"><label>' + f.label + '</label>' + input + '</div>';
+}
+// ช่อง select ที่มี optionsFrom → ดึงตัวเลือกจาก API (เช่น รายชื่อหมวดหมู่จากฐานข้อมูล)
+async function loadOptions(fields, forSearch) {
+  for (const f of fields.filter(f => f.optionsFrom)) {
+    const src = f.optionsFrom, r = await api(src.api);
+    f.options = r.ok ? (r.data || []).map(row => ({ value: row[src.value], label: row[src.label] }))
+                     : [{ value: "", label: (r.todo ? "🚧 " : "⚠️ ") + r.error }];
+    if (forSearch && r.ok) f.options.unshift({ value: "", label: "ทั้งหมด" });
+  }
+}
+// ช่องในฟอร์มที่ใช้อยู่ตอนนี้ (ช่อง editOnly แสดงเฉพาะตอนแก้ไข)
+function formFields() { return ENTITIES[current].form.filter(f => !f.editOnly || editingId !== null); }
+async function buildSearch() {
+  const cfg = ENTITIES[current];
+  await loadOptions(cfg.search, true);
+  if (cfg !== ENTITIES[current]) return;   // ผู้ใช้เปลี่ยนแท็บระหว่างรอ
+  $("#searchTitle").textContent = cfg.label;
+  $("#searchFields").innerHTML = cfg.search.map(f => fieldHtml(f, "s_")).join("");
+}
+async function doSearch() {
+  const cfg = ENTITIES[current];
+  const params = new URLSearchParams();
+  cfg.search.forEach(f => { const v = $("#s_" + f.key).value; if (v) params.append(f.key, v); });
+  setStatus($("#status"), "กำลังค้นหา...");
+  renderTable(await api(cfg.api + "?" + params.toString()));
+}
+function renderTable(r) {
+  const head = $("#tableHead"), body = $("#tableBody"), st = $("#status");
+  head.innerHTML = ""; body.innerHTML = "";
+  if (!r.ok) { setStatus(st, (r.todo ? "🚧 " : "⚠️ ") + r.error, r.todo ? "todo" : "err"); return; }
+  const rows = r.data || [];
+  if (rows.length === 0) { setStatus(st, "ไม่พบข้อมูล"); return; }
+  setStatus(st, "พบ " + rows.length + " รายการ");
+  const cols = Object.keys(rows[0]);
+  head.innerHTML = cols.map(c => "<th>" + c + "</th>").join("") + "<th>จัดการ</th>";
+  body.innerHTML = rows.map(row => {
+    const id = row[ENTITIES[current].idKey];
+    return "<tr>" + cols.map(c => "<td>" + (row[c] ?? "—") + "</td>").join("") +
+      '<td><button class="btn sm" onclick="editRow(' + id + ')">แก้ไข</button> ' +
+      '<button class="btn sm del" onclick="deleteRow(' + id + ')">ลบ</button></td></tr>';
+  }).join("");
+}
+async function openForm(title, data = {}) {
+  await loadOptions(formFields(), false);
+  $("#modalTitle").textContent = title;
+  $("#formFields").innerHTML = formFields().map(f => fieldHtml(f, "f_", data[f.key])).join("");
+  $("#modal").classList.remove("hidden");
+}
+function collectForm() { const d = {}; formFields().filter(f => f.key).forEach(f => d[f.key] = $("#f_" + f.key).value); return d; }
+async function editRow(id) {
+  const cfg = ENTITIES[current];
+  const r = await api(cfg.api + "/" + id);
+  if (!r.ok) { alert((r.todo ? "🚧 " : "⚠️ ") + r.error); return; }
+  editingId = id; openForm("แก้ไขข้อมูล", r.data);
+}
+async function deleteRow(id) {
+  if (!confirm("ยืนยันการลบ?")) return;
+  const r = await api(ENTITIES[current].api + "/" + id, { method: "DELETE" });
+  if (!r.ok) { alert((r.todo ? "🚧 " : "⚠️ ") + r.error); return; }
+  doSearch();
+}
+async function save() {
+  const cfg = ENTITIES[current], data = collectForm();
+  const opts = { method: editingId ? "PUT" : "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(data) };
+  const r = await api(editingId ? cfg.api + "/" + editingId : cfg.api, opts);
+  if (!r.ok) { alert((r.todo ? "🚧 " : "⚠️ ") + r.error); return; }
+  $("#modal").classList.add("hidden"); doSearch();
+}
+document.querySelectorAll(".tab").forEach(t => t.addEventListener("click", () => {
+  document.querySelectorAll(".tab").forEach(x => x.classList.remove("active"));
+  t.classList.add("active"); current = t.dataset.entity;
+  buildSearch(); $("#tableHead").innerHTML = ""; $("#tableBody").innerHTML = "";
+  setStatus($("#status"), 'กด "ค้นหา" เพื่อแสดงข้อมูล');
+}));
+$("#btnSearch").onclick = doSearch;
+$("#btnClear").onclick = () => buildSearch();
+$("#btnAdd").onclick = () => { editingId = null; openForm("เพิ่มข้อมูลใหม่"); };
+$("#btnSave").onclick = save;
+$("#btnCancel").onclick = () => $("#modal").classList.add("hidden");
+buildSearch();
+setStatus($("#status"), 'กด "ค้นหา" เพื่อแสดงข้อมูล');
