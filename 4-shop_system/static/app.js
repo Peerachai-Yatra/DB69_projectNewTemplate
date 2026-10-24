@@ -28,6 +28,8 @@ const ENTITIES = {
         "options": [
           "",
           "normal",
+          "silver",
+          "gold",
           "vip"
         ]
       }
@@ -54,6 +56,8 @@ const ENTITIES = {
         "type": "select",
         "options": [
           "normal",
+          "silver",
+          "gold",
           "vip"
         ]
       }
@@ -72,7 +76,17 @@ const ENTITIES = {
       {
         "key": "category",
         "label": "หมวดหมู่",
-        "type": "text"
+        "type": "select",
+        "options": [
+          "",
+          "unassigned",
+          "electronics",
+          "fashion",
+          "home", 
+          "stationery",
+          "sports",
+          "necessities"
+        ]
       }
     ],
     "form": [
@@ -84,7 +98,15 @@ const ENTITIES = {
       {
         "key": "category",
         "label": "หมวดหมู่",
-        "type": "text"
+        "type": "select",
+        "options": [
+          "electronics",
+          "fashion",
+          "home",
+          "stationery",
+          "sports",
+          "necessities"
+        ]
       },
       {
         "key": "price",
@@ -103,47 +125,19 @@ const ENTITIES = {
     "api": "/api/orders",
     "idKey": "order_id",
     "search": [
-      {
-        "key": "cust_id",
-        "label": "รหัสลูกค้า",
-        "type": "number"
-      },
-      {
-        "key": "status",
-        "label": "สถานะ",
-        "type": "select",
-        "options": [
-          "",
-          "pending",
-          "shipped"
-        ]
-      }
+      { "key": "cust_id", "label": "รหัสลูกค้า", "type": "number" },
+      { "key": "status", "label": "สถานะ", "type": "select",
+        "options": ["", "pending", "shipped"] }
     ],
     "form": [
-      {
-        "key": "cust_id",
-        "label": "ลูกค้า",
-        "type": "select",
-        "optionsFrom": {
-          "api": "/api/customers",
-          "value": "cust_id",
-          "label": "name"
-        }
-      },
-      {
-        "key": "order_date",
-        "label": "วันที่สั่ง",
-        "type": "date"
-      },
-      {
-        "key": "status",
-        "label": "สถานะ",
-        "type": "select",
-        "options": [
-          "pending",
-          "shipped"
-        ]
-      }
+      { "key": "cust_id", "label": "ลูกค้า", "type": "select",
+        "optionsFrom": { "api": "/api/customers", "value": "cust_id", "label": "name" } },
+      { "key": "order_date", "label": "วันที่สั่ง", "type": "date" },
+      { "key": "status", "label": "สถานะ", "type": "select",
+        "options": ["pending", "shipped"] },
+      { "key": "product_id", "label": "สินค้า", "type": "select",
+        "optionsFrom": { "api": "/api/products", "value": "product_id", "label": "name" } },
+      { "key": "qty", "label": "จำนวน", "type": "number" }
     ]
   }
 };
