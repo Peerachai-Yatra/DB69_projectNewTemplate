@@ -139,9 +139,9 @@ def search_orders(filters):
                    AS total
         FROM shop_order o
         INNER JOIN customer c ON o.cust_id = c.cust_id
-        LEFT JOIN (SELECT order_id, SUM(qty * unit_price) AS gross
-                   FROM order_line
-                   GROUP BY order_id) t ON o.order_id = t.order_id
+        LEFT JOIN (SELECT ol.order_id, SUM(ol.qty * ol.unit_price) AS gross
+                   FROM order_line ol
+                   GROUP BY ol.order_id) t ON o.order_id = t.order_id
         WHERE 1=1
     """
     params = []
@@ -188,7 +188,7 @@ def create_order(data):
     conn = get_connection()
     cur = conn.cursor(dictionary=True)
     try:
-        # 1) สร้างออเดอร์ (shop_order)
+        # 1 สร้างออเดอร์ (shop_order)
         cur.execute(
             "INSERT INTO shop_order (cust_id, order_date, status) "
             "VALUES (%s, COALESCE(%s, CURRENT_DATE), COALESCE(%s, 'pending'))",
@@ -196,7 +196,7 @@ def create_order(data):
              blank_to_none(data.get("status"))))
         order_id = cur.lastrowid
 
-        # 2) ถ้าเลือกสินค้ามาด้วย -> เพิ่มแถวใน order_line
+        # 2 ถ้าเลือกสินค้ามาด้วย -> เพิ่มแถวใน order_line
         if product_id is not None:
             cur.execute("SELECT price, stock FROM product "
                         "WHERE product_id = %s FOR UPDATE", (product_id,))
@@ -210,7 +210,7 @@ def create_order(data):
                 "INSERT INTO order_line (order_id, product_id, qty, unit_price) "
                 "VALUES (%s, %s, %s, %s)",
                 (order_id, product_id, qty, p["price"]))
-            # 3) ตัดสต็อก
+            # 3 ตัดสต็อก
             cur.execute("UPDATE product SET stock = stock - %s "
                         "WHERE product_id = %s", (qty, product_id))
 
@@ -223,8 +223,6 @@ def create_order(data):
         cur.close()
         conn.close()
     
-
-
 def update_order(order_id, data):
     """แก้ไข ออเดอร์ ตาม order_id"""
     if data.get("status") == "shipped":
@@ -246,6 +244,90 @@ def delete_order(order_id):
     run_command("DELETE FROM order_line WHERE order_id = %s", (order_id,))
     return run_command("DELETE FROM shop_order WHERE order_id = %s", (order_id,))
 
+def search_reviews(filters):
+    """ค้นหา รีวิว ตามเงื่อนไข (product_id, rating)"""
+    sql = "SELECT * FROM review WHERE 1=1"
+    params = []
+    if filters.get("product_id"):
+        sql += " AND product_id = %s"
+        params.append(filters["product_id"])
+    if filters.get("rating"):
+        sql += " AND rating = %s"
+        params.append(filters["rating"])
+    sql += " ORDER BY review_date DESC"
+    return run_query(sql, params)
+
+def get_review(review_id):
+    """ดึง รีวิว 1 รายการตาม review_id"""
+    rows = run_query("SELECT * FROM review WHERE review_id = %s", (review_id,))
+    return rows[0] if rows else None
+
+def create_review(data):
+    """เพิ่ม รีวิว ใหม่ — data มีคีย์: cust_id, product_id, rating, comment, review_date"""
+    sql = ("INSERT INTO review (cust_id, product_id, rating, comment, review_date) "
+           "VALUES (%s, %s, %s, %s, COALESCE(%s, CURRENT_DATE))")
+    return run_command(sql, (data["cust_id"], data["product_id"], data["rating"],
+                             blank_to_none(data.get("comment")),
+                             blank_to_none(data.get("review_date"))))
+
+def update_review(review_id, data):
+    """แก้ไข รีวิว ตาม review_id"""
+    sql = ("UPDATE review SET cust_id = %s, product_id = %s, rating = %s, "
+           "comment = %s, review_date = %s "
+           "WHERE review_id = %s")
+    return run_command(sql, (data["cust_id"], data["product_id"], data["rating"],
+                             blank_to_none(data.get("comment")),
+                             blank_to_none(data.get("review_date")), review_id))
+
+def delete_review(review_id):
+    """ลบ รีวิว ตาม review_id"""
+    return run_command("DELETE FROM review WHERE review_id = %s", (review_id,))
+
+def get_product_reviews(product_id):
+    """ดึงรีวิวทั้งหมดของสินค้าตาม product_id"""
+    sql = "SELECT * FROM review WHERE product_id = %s ORDER BY review_date DESC"
+    return run_query(sql, (product_id,))
+
+def search_payments(filters):
+    """ค้นหา การชำระเงิน ตามเงื่อนไข (order_id, paid_date)"""
+    sql = "SELECT * FROM payment WHERE 1=1"
+    params = []
+    if filters.get("order_id"):
+        sql += " AND order_id = %s"
+        params.append(filters["order_id"])
+    if filters.get("paid_date"):
+        sql += " AND paid_date = %s"
+        params.append(filters["paid_date"])
+    sql += " ORDER BY payment_id ASC"
+    return run_query(sql, tuple(params))
+
+def get_payment(payment_id):
+    """ดึง การชำระเงิน 1 รายการตาม payment_id"""
+    rows = run_query("SELECT * FROM payment WHERE payment_id = %s", (payment_id,))
+    return rows[0] if rows else None
+
+def create_payment(data):
+    """เพิ่ม การชำระเงิน ใหม่ — data มีคีย์: order_id, amount, paid_date"""
+    sql = ("INSERT INTO payment (order_id, amount, paid_date) "
+           "VALUES (%s, %s, COALESCE(%s, CURRENT_DATE))")
+    return run_command(sql, (data["order_id"], data["amount"],
+                             blank_to_none(data.get("paid_date"))))
+
+def update_payment(payment_id, data):
+    """แก้ไข การชำระเงิน ตาม payment_id"""
+    sql = ("UPDATE payment SET order_id = %s, amount = %s, paid_date = %s "
+           "WHERE payment_id = %s")
+    return run_command(sql, (data["order_id"], data["amount"],
+                             blank_to_none(data.get("paid_date")), payment_id))
+
+def delete_payment(payment_id):
+    """ลบ การชำระเงิน ตาม payment_id"""
+    return run_command("DELETE FROM payment WHERE payment_id = %s", (payment_id,))
+
+def get_product_reviews(product_id):
+    """ดึงรีวิวทั้งหมดของสินค้าตาม product_id"""
+    sql = "SELECT * FROM review WHERE product_id = %s ORDER BY review_date DESC"
+    return run_query(sql, (product_id,))
 
 # ============================================================
 #  REPORT (รายงาน — ใช้ JOIN + GROUP BY + subquery)
@@ -319,7 +401,18 @@ def report_high_rated():
     """
     return run_query(sql)
 
-
+def report_review():
+    """📋 รายงานรีวิวสินค้า — ตัวอย่างการเพิ่มรายงานที่ 4"""
+    sql = """
+        SELECT p.name AS 'สินค้า',
+               r.rating AS 'คะแนน',
+               r.comment AS 'ความคิดเห็น',
+               r.review_date AS 'วันที่รีวิว'
+        FROM review r
+        INNER JOIN product p ON r.product_id = p.product_id
+        ORDER BY r.review_date DESC
+    """
+    return run_query(sql)
 # ============================================================
 #  รายการรายงานที่แสดงบนหน้า /report  (เรียงตามลำดับที่แสดง)
 #  ★ รายการนี้ต้องอยู่ท้ายไฟล์ (หลังฟังก์ชันทั้งหมด)
@@ -329,5 +422,6 @@ REPORTS = [
     ("best-selling",  "📈 สินค้าขายดี (Best Sellers)",                    report_best_selling),
     ("top-customers", "🏅 ลูกค้าที่ซื้อมากกว่าค่าเฉลี่ย (Above Average)", report_customers_above_avg),
     ("high-rated",    "⭐ สินค้าคะแนนรีวิวเฉลี่ย ≥ 4 (HAVING)",           report_high_rated),
+    ("review",        "📋 รายงานรีวิวสินค้า",                          report_review),
     # ("my-report", "📋 รายงานของฉัน", report_my_report),   ← ตัวอย่างการเพิ่มรายงานที่ 4
 ]
