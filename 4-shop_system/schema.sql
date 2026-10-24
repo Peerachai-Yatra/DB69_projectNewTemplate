@@ -39,7 +39,7 @@ CREATE TABLE shop_order (
     order_id   INT AUTO_INCREMENT PRIMARY KEY,
     cust_id    INT NOT NULL,
     order_date DATE NOT NULL DEFAULT (CURRENT_DATE),
-    status     ENUM('pending','shipped') NOT NULL DEFAULT 'pending',
+    status     ENUM('pending','shipped', 'cancelled') NOT NULL DEFAULT 'pending',
     -- ★ ไม่มีคอลัมน์ยอดรวม — คำนวณจาก order_line (ดู search_orders ใน db.py)
     CONSTRAINT fk_order_customer FOREIGN KEY (cust_id)
         REFERENCES customer(cust_id)
@@ -75,7 +75,7 @@ CREATE TABLE review (             -- M:N: customer × product
 CREATE TABLE payment (            -- 1:M จาก shop_order
     payment_id INT AUTO_INCREMENT PRIMARY KEY,
     order_id   INT NOT NULL,
-    method     VARCHAR(30) NOT NULL,
+    method     ENUM('Somehow', 'Cash', 'Credit Card', 'Bank Transfer') NOT NULL DEFAULT 'Somehow',
     amount     DECIMAL(10,2) NOT NULL CHECK (amount > 0),
     paid_date  DATE NOT NULL DEFAULT (CURRENT_DATE),
 
@@ -121,10 +121,10 @@ INSERT INTO order_line (order_id, product_id, qty, unit_price) VALUES
 (6, 3, 1,  290.00);             -- ยอดออเดอร์ 6 = 290
 
 INSERT INTO payment (order_id, method, amount, paid_date) VALUES
-(1, 'credit_card', 2000.00, '2026-09-02'),
-(1, 'promptpay',    870.00, '2026-09-03'),
-(3, 'promptpay',   2340.00, '2026-09-06'),
-(4, 'transfer',     158.00, '2026-09-29');
+(1, 'Credit Card', 2000.00, '2026-09-02'),
+(1, 'Cash',    870.00, '2026-09-03'),
+(3, 'Cash',   2340.00, '2026-09-06'),
+(4, 'Bank Transfer',     158.00, '2026-09-29');
 
 INSERT INTO review (cust_id, product_id, rating, comment, review_date) VALUES
 (1, 1, 5, 'เสียงดีมาก',            '2026-09-10'),
