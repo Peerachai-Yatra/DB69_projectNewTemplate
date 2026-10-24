@@ -16,7 +16,7 @@ CREATE TABLE customer (
     name    VARCHAR(100) NOT NULL,
     email   VARCHAR(150) NOT NULL UNIQUE,
     address VARCHAR(255) NULL,
-    tier    ENUM('normal','vip') NOT NULL DEFAULT 'normal'
+    tier    ENUM('normal', 'silver', 'gold', 'vip') NOT NULL DEFAULT 'normal'
 );
 
 CREATE TABLE product (
