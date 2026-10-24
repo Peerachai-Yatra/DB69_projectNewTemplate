@@ -131,14 +131,15 @@ def delete_product(product_id):
 
 # ---------- ออเดอร์ (shop_order) ----------
 def search_orders(filters):
-    """ค้นหา ออเดอร์ ตามเงื่อนไข (cust_id, status)
-    คอลัมน์: order_id, cust_id, customer_name, order_date, status, total"""
+    """ค้นหา ออเดอร์ ตามเงื่อนไข (cust_id, status)"""
     sql = """
         SELECT o.order_id, o.cust_id, c.name AS customer_name,
-               o.order_date, o.status, IFNULL(t.total, 0) AS total
+               o.order_date, o.status,
+               IFNULL(ROUND(t.gross * (1 - IFNULL(c.discount, 0) / 100), 2), 0)
+                   AS total
         FROM shop_order o
         INNER JOIN customer c ON o.cust_id = c.cust_id
-        LEFT JOIN (SELECT order_id, SUM(qty * unit_price) AS total
+        LEFT JOIN (SELECT order_id, SUM(qty * unit_price) AS gross
                    FROM order_line
                    GROUP BY order_id) t ON o.order_id = t.order_id
         WHERE 1=1
@@ -174,11 +175,54 @@ def create_order(data):
     # ออเดอร์ใหม่ยังไม่มีการชำระเงิน จึงตั้งเป็น shipped ไม่ได้
     if data.get("status") == "shipped":
         raise ValueError("ออเดอร์ใหม่ยังไม่ได้ชำระเงิน จัดส่งไม่ได้")
-    sql = ("INSERT INTO shop_order (cust_id, order_date, status) "
-           "VALUES (%s, COALESCE(%s, CURRENT_DATE), COALESCE(%s, 'pending'))")
-    return run_command(sql, (data["cust_id"],
-                             blank_to_none(data.get("order_date")),
-                             blank_to_none(data.get("status"))))
+
+    product_id = blank_to_none(data.get("product_id"))
+    try:
+        qty = int(blank_to_none(data.get("qty")) or 1)
+    except (TypeError, ValueError):
+        raise ValueError("จำนวนสินค้าต้องเป็นตัวเลข")
+    if product_id is not None and qty <= 0:
+        raise ValueError("จำนวนสินค้าต้องมากกว่า 0")
+
+    # ใช้ connection เดียวกันทุกคำสั่ง เพื่อให้ "สำเร็จทั้งหมด หรือไม่ทำเลย"
+    conn = get_connection()
+    cur = conn.cursor(dictionary=True)
+    try:
+        # 1) สร้างออเดอร์ (shop_order)
+        cur.execute(
+            "INSERT INTO shop_order (cust_id, order_date, status) "
+            "VALUES (%s, COALESCE(%s, CURRENT_DATE), COALESCE(%s, 'pending'))",
+            (data["cust_id"], blank_to_none(data.get("order_date")),
+             blank_to_none(data.get("status"))))
+        order_id = cur.lastrowid
+
+        # 2) ถ้าเลือกสินค้ามาด้วย -> เพิ่มแถวใน order_line
+        if product_id is not None:
+            cur.execute("SELECT price, stock FROM product "
+                        "WHERE product_id = %s FOR UPDATE", (product_id,))
+            p = cur.fetchone()
+            if p is None:
+                raise ValueError("ไม่พบสินค้านี้")
+            if p["stock"] < qty:
+                raise ValueError(f"สินค้าในสต็อกไม่พอ (เหลือ {p['stock']} ชิ้น)")
+            # unit_price = ราคา ณ วันที่ขาย (เก็บไว้แม้ราคาสินค้าเปลี่ยนทีหลัง)
+            cur.execute(
+                "INSERT INTO order_line (order_id, product_id, qty, unit_price) "
+                "VALUES (%s, %s, %s, %s)",
+                (order_id, product_id, qty, p["price"]))
+            # 3) ตัดสต็อก
+            cur.execute("UPDATE product SET stock = stock - %s "
+                        "WHERE product_id = %s", (qty, product_id))
+
+        conn.commit()
+        return {"new_id": order_id, "affected": 1}
+    except Exception:
+        conn.rollback()      # พลาดตรงไหน ย้อนกลับทั้งหมด (ไม่เหลือออเดอร์ค้าง)
+        raise                # ส่ง error ต่อให้ app.py แสดงเป็น alert
+    finally:
+        cur.close()
+        conn.close()
+    
 
 
 def update_order(order_id, data):
