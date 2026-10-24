@@ -127,17 +127,52 @@ const ENTITIES = {
     "search": [
       { "key": "cust_id", "label": "รหัสลูกค้า", "type": "number" },
       { "key": "status", "label": "สถานะ", "type": "select",
-        "options": ["", "pending", "shipped"] }
+        "options": ["", "pending", "shipped", "cancelled"] }
     ],
     "form": [
       { "key": "cust_id", "label": "ลูกค้า", "type": "select",
         "optionsFrom": { "api": "/api/customers", "value": "cust_id", "label": "name" } },
       { "key": "order_date", "label": "วันที่สั่ง", "type": "date" },
       { "key": "status", "label": "สถานะ", "type": "select",
-        "options": ["pending", "shipped"] },
+        "options": ["pending", "shipped", "cancelled"] },
       { "key": "product_id", "label": "สินค้า", "type": "select",
         "optionsFrom": { "api": "/api/products", "value": "product_id", "label": "name" } },
       { "key": "qty", "label": "จำนวน", "type": "number" }
+    ]
+  },
+  "reviews": {
+    "label": "รีวิวสินค้า",
+    "api": "/api/reviews",
+    "idKey": "review_id",
+    "search": [
+      { "key": "product_id", "label": "รหัสสินค้า", "type": "number" },
+      { "key": "rating", "label": "คะแนน", "type": "select",
+        "options": ["", 1, 2, 3, 4, 5] }
+    ],
+    "form": [
+      { "key": "product_id", "label": "สินค้า", "type": "select",
+        "optionsFrom": { "api": "/api/products", "value": "product_id", "label": "name" } },
+      { "key": "cust_id", "label": "ลูกค้า", "type": "select",
+        "optionsFrom": { "api": "/api/customers", "value": "cust_id", "label": "name" } },
+      { "key": "rating", "label": "คะแนน", "type": "select",
+        "options": [1, 2, 3, 4, 5] },
+      { "key": "comment", "label": "ความคิดเห็น", "type": "text" }
+    ]
+  },
+  "payments": {
+    "label": "ชำระเงิน",
+    "api": "/api/payments",
+    "idKey": "payment_id",
+    "search": [
+      { "key": "order_id", "label": "รหัสออเดอร์", "type": "number" },
+    ],
+    "form": [
+      { "key": "order_id", "label": "ออเดอร์", "type": "select",
+        "optionsFrom": { "api": "/api/orders", "value": "order_id", "label": "order_date" } },
+      { "key": "payment_date", "label": "วันที่ชำระ", "type": "date" },
+      { "key": "amount", "label": "จำนวนเงิน", "type": "number" },
+      { "key": "method", "label": "วิธีชำระ", "type": "select",
+        "options": ["Somehow", "Cash", "Credit Card", "Bank Transfer"] },
     ]
   }
 };
