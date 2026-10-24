@@ -13,16 +13,24 @@ DROP TABLE IF EXISTS customer;
 
 CREATE TABLE customer (
     cust_id INT AUTO_INCREMENT PRIMARY KEY,
-    name    VARCHAR(100) NOT NULL,
-    email   VARCHAR(150) NOT NULL UNIQUE,
-    address VARCHAR(255) NULL,
-    tier    ENUM('normal', 'silver', 'gold', 'vip') NOT NULL DEFAULT 'normal'
+    name        VARCHAR(100) NOT NULL,
+    email       VARCHAR(150) NOT NULL UNIQUE,
+    address     VARCHAR(255) NULL,
+    tier        ENUM('normal','silver', 'gold', 'vip') NOT NULL DEFAULT 'normal',
+    discount    DECIMAL(5, 2) GENERATED ALWAYS AS (
+                    CASE tier
+                        WHEN 'normal' THEN 0.00
+                        WHEN 'silver' THEN 2.50
+                        WHEN 'gold'   THEN 5.00
+                        WHEN 'vip'    THEN 10.00
+                    END
+                ) VIRTUAL
 );
 
 CREATE TABLE product (
     product_id INT AUTO_INCREMENT PRIMARY KEY,
-    name       VARCHAR(150) NOT NULL,
-    category   VARCHAR(50)  NOT NULL,
+    name       VARCHAR(150) NOT NULL UNIQUE,
+    category   ENUM('unassigned','electronics', 'fashion', 'home', 'stationery', 'sports', 'necessities') NOT NULL DEFAULT 'unassigned',
     price      DECIMAL(10,2) NOT NULL CHECK (price >= 0),
     stock      INT NOT NULL DEFAULT 0 CHECK (stock >= 0)
 );
