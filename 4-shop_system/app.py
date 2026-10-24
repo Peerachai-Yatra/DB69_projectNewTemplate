@@ -112,6 +112,53 @@ def order_update(_id):
 def order_delete(_id):
     return safe(db.delete_order, _id)
 
+# ---- รีวิว ----
+@app.route("/api/reviews", methods=["GET"])
+def reviews_list():
+    filters = {k: v for k, v in request.args.items() if v}
+    return safe(db.search_review, filters)
+
+@app.route("/api/reviews/<int:_id>", methods=["GET"])
+def get_review(_id):
+    return safe(db.get_review, _id)
+
+@app.route("/api/reviews", methods=["POST"])
+def create_review():
+    return safe(db.create_review, request.json)
+
+
+@app.route("/api/reviews/<int:_id>", methods=["PUT"])
+def update_review(_id):
+    return safe(db.update_review, _id, request.json)
+
+@app.route("/api/reviews/<int:_id>", methods=["DELETE"])
+def delete_review(_id):
+    return safe(db.delete_review, _id)
+
+@app.route("/api/products/<int:product_id>/reviews", methods=["GET"])
+def get_product_reviews(product_id):
+    return safe(db.get_product_reviews, product_id)
+# ---- ชำระเงิน ----
+@app.route("/api/payments", methods=["GET"])
+def payments_list():
+    filters = {k: v for k, v in request.args.items() if v}
+    return safe(db.search_payments, filters)
+
+@app.route("/api/payments/<int:_id>", methods=["GET"])
+def get_payment(_id):
+    return safe(db.get_payment, _id)
+
+@app.route("/api/payments", methods=["POST"])
+def create_payment():
+    return safe(db.create_payment, request.json)
+
+@app.route("/api/payments/<int:_id>", methods=["PUT"])
+def update_payment(_id):
+    return safe(db.update_payment, _id, request.json)
+
+@app.route("/api/payments/<int:_id>", methods=["DELETE"])
+def delete_payment(_id):
+    return safe(db.delete_payment, _id)
 
 # ---- รายงาน ----
 @app.route("/api/reports/summary")
